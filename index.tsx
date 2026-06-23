@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,16 +17,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ThemeProvider>
-      <LanguageProvider>
-        <NotificationProvider>
-          <AuthProvider>
-            <DataProvider>
-              <App />
-            </DataProvider>
-          </AuthProvider>
-        </NotificationProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <LanguageProvider>
+          <NotificationProvider>
+            <AuthProvider>
+              <DataProvider>
+                <App />
+              </DataProvider>
+            </AuthProvider>
+          </NotificationProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
