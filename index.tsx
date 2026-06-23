@@ -1,7 +1,8 @@
+import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider } from './contexts/LanguageProvider';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { NotificationProvider } from './contexts/NotificationContext';

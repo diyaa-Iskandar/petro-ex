@@ -10,7 +10,7 @@ import { Archive } from './pages/Archive';
 import { Team } from './pages/Team';
 import { Settlements } from './pages/Settlements';
 import { Button } from './components/Button';
-import { useLanguage } from './contexts/LanguageContext';
+import { useLanguage } from './contexts/LanguageProvider';
 import { useAuth } from './contexts/AuthContext';
 import { useData } from './contexts/DataContext';
 import { useNotification } from './contexts/NotificationContext';
