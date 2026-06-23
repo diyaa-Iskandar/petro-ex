@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, BellRing } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Info, BellRing } from 'lucide-react';
 
 type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
@@ -24,15 +23,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const showNotification = useCallback((message: string, type: NotificationType = 'info', withSound: boolean = false) => {
     const id = Date.now().toString();
-    
-    setNotifications((prev) => {
-        // Keep only the last 2 items + the new one = Max 3 displayed
-        const updated = [...prev, { id, message, type }];
-        if (updated.length > 3) {
-            return updated.slice(updated.length - 3);
-        }
-        return updated;
-    });
+    setNotifications((prev) => [...prev, { id, message, type }]);
 
     if (withSound) {
         audioRef.current.currentTime = 0;
@@ -52,20 +43,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <NotificationContext.Provider value={{ showNotification }}>
       {children}
-      {/* Toast Container - Fixed logic: Stack from bottom, max 3 */}
-      <div className="fixed bottom-4 left-4 right-4 md:left-8 md:right-auto md:w-96 z-[9999] flex flex-col gap-2 pointer-events-none transition-all duration-300">
+      {/* Toast Container */}
+      <div className="fixed bottom-4 left-4 right-4 md:left-8 md:right-auto md:w-96 z-50 flex flex-col gap-2 pointer-events-none">
         {notifications.map((notification) => (
           <div
             key={notification.id}
             className={`
               pointer-events-auto flex items-center gap-3 p-4 rounded-xl shadow-2xl transform transition-all duration-300 animate-slide-up border-l-4 backdrop-blur-md
-              ${notification.type === 'success' ? 'bg-white/95 dark:bg-slate-800/95 border-green-500 text-slate-800 dark:text-white' : ''}
-              ${notification.type === 'error' ? 'bg-white/95 dark:bg-slate-800/95 border-red-500 text-slate-800 dark:text-white' : ''}
-              ${notification.type === 'warning' ? 'bg-white/95 dark:bg-slate-800/95 border-amber-500 text-slate-800 dark:text-white' : ''}
-              ${notification.type === 'info' ? 'bg-slate-800/95 dark:bg-slate-700/95 border-blue-500 text-white' : ''}
+              ${notification.type === 'success' ? 'bg-white/90 dark:bg-slate-800/90 border-green-500 text-slate-800 dark:text-white' : ''}
+              ${notification.type === 'error' ? 'bg-white/90 dark:bg-slate-800/90 border-red-500 text-slate-800 dark:text-white' : ''}
+              ${notification.type === 'warning' ? 'bg-white/90 dark:bg-slate-800/90 border-amber-500 text-slate-800 dark:text-white' : ''}
+              ${notification.type === 'info' ? 'bg-slate-800/90 dark:bg-slate-700/90 border-blue-500 text-white' : ''}
             `}
           >
-            <div className={`p-2 rounded-full shrink-0 ${
+            <div className={`p-2 rounded-full ${
                 notification.type === 'success' ? 'bg-green-100 text-green-600' : 
                 notification.type === 'error' ? 'bg-red-100 text-red-600' : 
                 notification.type === 'warning' ? 'bg-amber-100 text-amber-600' :
@@ -76,7 +67,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 {notification.type === 'info' && <BellRing size={20} />}
             </div>
             
-            <p className="flex-1 text-sm font-bold leading-tight">{notification.message}</p>
+            <p className="flex-1 text-sm font-bold">{notification.message}</p>
             
             <button 
               onClick={() => removeNotification(notification.id)}

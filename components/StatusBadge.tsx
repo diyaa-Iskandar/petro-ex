@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AdvanceStatus, ExpenseStatus } from '../types';
-import { useLanguage } from '../contexts/LanguageProvider';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface StatusBadgeProps {
   status: AdvanceStatus | ExpenseStatus;

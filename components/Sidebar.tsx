@@ -2,7 +2,7 @@
 import React from 'react';
 import { LayoutDashboard, FileText, Settings, LogOut, Wallet, X, Briefcase, Users, Scale, ChevronLeft, Archive } from 'lucide-react';
 import { UserRole } from '../types';
-import { useLanguage } from '../contexts/LanguageProvider';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useData } from '../contexts/DataContext';
@@ -16,8 +16,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMobileOpen, closeMobileMenu }) => {
-  const { t, dir, language, setLanguage } = useLanguage();
+  const { t, dir } = useLanguage();
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
   const { getStableAvatar } = useData();
 
   if (!user) return null;
@@ -32,19 +33,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
     { id: 'archive', label: t('archive'), icon: Archive },
   ];
 
-  // Force sidebar to the right regardless of dir
-  // Mobile: translate-x-0 if open, otherwise hidden
-  // Desktop: Fixed on right
-  const sidebarClasses = `
-    fixed inset-y-4 z-50 w-72 
-    bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl
-    border border-slate-200/50 dark:border-slate-800/50
-    shadow-2xl shadow-slate-200/50 dark:shadow-black/50
-    rounded-2xl transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
-    flex flex-col
-    right-4 md:right-6
-    ${isMobileOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
-  `;
+  const translateClass = dir === 'rtl' 
+    ? (isMobileOpen ? 'translate-x-0' : 'translate-x-full') 
+    : (isMobileOpen ? 'translate-x-0' : '-translate-x-full');
 
   return (
     <>
@@ -55,7 +46,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
         />
       )}
 
-      <aside className={sidebarClasses}>
+      <aside 
+        className={`
+          fixed inset-y-4 z-50 w-72 
+          bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl
+          border border-slate-200/50 dark:border-slate-800/50
+          shadow-2xl shadow-slate-200/50 dark:shadow-black/50
+          rounded-2xl transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
+          flex flex-col
+          ${translateClass}
+          md:translate-x-0 
+          ${dir === 'rtl' ? 'right-4 md:right-6' : 'left-4 md:left-6'}
+        `}
+      >
         {/* Header */}
         <div className="p-6 pb-2 flex justify-between items-center">
           <div className="flex items-center gap-3.5 group">
@@ -82,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
           <div className="overflow-hidden">
             <p className="font-bold text-sm text-slate-800 dark:text-white truncate">{user.name}</p>
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate uppercase tracking-wider">
-              {user.role === UserRole.ADMIN ? t('roleAdmin') : (user.role === UserRole.MAIN_CUSTODY ? t('roleMainCustody') : t('roleSubCustody'))}
+              {user.role === UserRole.ADMIN ? t('roleAdmin') : (user.role === UserRole.ENGINEER ? t('roleEngineer') : t('roleTechnician'))}
             </p>
           </div>
         </div>
@@ -110,12 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
         {/* Footer Actions */}
         <div className="p-4 mx-4 mb-4 mt-2 bg-slate-50/80 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700 backdrop-blur-md space-y-2">
             <div className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50">
-               <button 
-                  onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-                  className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors bg-white dark:bg-slate-800 px-3 py-1 rounded-md shadow-sm"
-               >
-                  {language === 'ar' ? 'English' : 'العربية'}
-               </button>
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
                <ThemeSwitch size="12px" />
             </div>
             

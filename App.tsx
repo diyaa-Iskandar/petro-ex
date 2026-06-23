@@ -10,37 +10,14 @@ import { Archive } from './pages/Archive';
 import { Team } from './pages/Team';
 import { Settlements } from './pages/Settlements';
 import { Button } from './components/Button';
-import { useLanguage } from './contexts/LanguageProvider';
+import { useLanguage } from './contexts/LanguageContext';
 import { useAuth } from './contexts/AuthContext';
 import { useData } from './contexts/DataContext';
 import { useNotification } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
-import { Menu, Eye, EyeOff, Lock, Mail, ArrowRight, Bell, Check, ExternalLink, X, Code2 } from 'lucide-react';
+import { Menu, Eye, EyeOff, Lock, Mail, ArrowRight, Bell, Check } from 'lucide-react';
 import { AppNotification } from './types';
 import { ThemeSwitch } from './components/ThemeSwitch';
-
-// --- Footer Component ---
-const Footer: React.FC = () => {
-    const { t } = useLanguage();
-    return (
-        <footer className="w-full py-6 mt-auto text-center border-t border-slate-200/50 dark:border-slate-800/50 transition-colors">
-            <div className="flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                    {t('allRightsReserved')} {new Date().getFullYear()}
-                </p>
-                <a 
-                    href="https://diyaa-sami.neocities.org/Diyaa-Sami" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full"
-                >
-                    <Code2 size={12} />
-                    <span>{t('developedBy')}</span>
-                </a>
-            </div>
-        </footer>
-    );
-};
 
 const LoginPage: React.FC = () => {
   const { t, language, setLanguage } = useLanguage();
@@ -52,7 +29,6 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showForgotModal, setShowForgotModal] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -65,7 +41,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center bg-slate-900 transition-colors duration-500" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center bg-slate-900 transition-colors duration-500" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Background Visuals */}
       <div className="absolute inset-0 z-0">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-950 via-slate-950 to-black"></div>
@@ -74,7 +50,7 @@ const LoginPage: React.FC = () => {
           <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
       </div>
 
-      <div className="container mx-auto px-4 relative z-10 flex flex-col lg:flex-row h-full items-center justify-center lg:justify-between min-h-[calc(100vh-80px)] gap-10 lg:gap-0">
+      <div className="container mx-auto px-4 relative z-10 flex flex-col lg:flex-row h-full items-center justify-center lg:justify-between min-h-screen gap-10 lg:gap-0">
           {/* Left Side */}
           <div className="w-full lg:w-1/2 text-center lg:text-start lg:pl-20 mt-10 lg:mt-0">
               <div className="w-20 h-20 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl flex items-center justify-center mx-auto lg:mx-0 mb-6 lg:mb-8 animate-scale-in">
@@ -85,7 +61,7 @@ const LoginPage: React.FC = () => {
                   <span className="text-blue-400 font-light">Engineering</span>
               </h1>
               <p className="text-slate-300 text-base lg:text-xl max-w-md mx-auto lg:mx-0 leading-relaxed opacity-90 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                 {language === 'ar' ? 'نظام إدارة مركزي متكامل للمصروفات والعهد والمشاريع الهندسية.' : 'Integrated centralized management system for expenses, advances, and engineering projects.'}
+                 نظام إدارة مركزي متكامل للمصروفات والعهد والمشاريع الهندسية.
               </p>
           </div>
 
@@ -97,7 +73,7 @@ const LoginPage: React.FC = () => {
                   <div className="flex justify-between items-center mb-8">
                       <div>
                           <h2 className="text-2xl font-black text-slate-800 dark:text-white">{t('welcome')}</h2>
-                          <p className="text-slate-500 text-sm font-bold">{t('loginToContinue')}</p>
+                          <p className="text-slate-500 text-sm font-bold">تسجيل الدخول للمتابعة</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <ThemeSwitch size="14px" />
@@ -112,9 +88,7 @@ const LoginPage: React.FC = () => {
 
                   <form onSubmit={handleLogin} className="space-y-5">
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            {language === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
-                        </label>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('userEmail')}</label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none z-10">
                                 <Mail size={18} />
@@ -132,9 +106,7 @@ const LoginPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            {language === 'ar' ? 'كلمة المرور' : 'Password'}
-                        </label>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('userPassword')}</label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none z-10">
                                 <Lock size={18} />
@@ -161,9 +133,9 @@ const LoginPage: React.FC = () => {
                     <div className="flex items-center justify-between pt-1">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 bg-slate-100" />
-                            <span className="text-xs text-slate-600 dark:text-slate-400 font-bold">{t('rememberMe')}</span>
+                            <span className="text-xs text-slate-600 dark:text-slate-400 font-bold">تذكرني</span>
                         </label>
-                        <button type="button" onClick={() => setShowForgotModal(true)} className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">{t('forgotPasswordLink')}</button>
+                        <a href="#" className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">هل نسيت كلمة المرور؟</a>
                     </div>
 
                     <Button 
@@ -173,49 +145,13 @@ const LoginPage: React.FC = () => {
                         isLoading={isLoading}
                     >
                         <span className="relative z-10 flex items-center justify-center gap-2">
-                            {t('loginButton')} <ArrowRight size={18} className={`transform transition-transform ${language === 'ar' ? 'group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`} />
+                            تسجيل الدخول <ArrowRight size={18} className={`transform transition-transform ${language === 'ar' ? 'group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`} />
                         </span>
                     </Button>
                   </form>
               </div>
           </div>
       </div>
-
-      {/* Footer in Login Page */}
-      <div className="relative z-10 w-full bg-slate-900/50 backdrop-blur-md">
-          <Footer />
-      </div>
-
-      {/* Forgot Password Modal */}
-      {showForgotModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowForgotModal(false)}>
-              <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] shadow-2xl p-8 text-center relative border border-white/20 overflow-hidden" onClick={e => e.stopPropagation()}>
-                  {/* Decorative */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
-                  
-                  <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-800 rounded-full transition-colors"><X size={20} /></button>
-                  
-                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100 dark:border-blue-800">
-                      <Lock size={32} />
-                  </div>
-                  
-                  <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2">{t('forgotPasswordTitle')}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-                      {t('forgotPasswordMsg')}
-                  </p>
-                  
-                  <a 
-                      href="https://diyaa-sami.neocities.org/Diyaa-Sami" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold hover:opacity-90 transition-opacity shadow-lg"
-                  >
-                      <span>{t('contactNow')}</span>
-                      <ExternalLink size={16} />
-                  </a>
-              </div>
-          </div>
-      )}
     </div>
   );
 };
@@ -235,7 +171,6 @@ export default function App() {
       }
   }, [user]);
 
-  // Handle redirect from notifications
   useEffect(() => {
       if (redirectTarget) {
           setActiveTab(redirectTarget.page);
@@ -273,12 +208,6 @@ export default function App() {
 
   const headerFlexClass = `flex items-center w-full justify-between relative`;
 
-  // Force sidebar on the right even in English
-  const mainClass = `
-    flex-1 flex flex-col p-4 md:p-8 transition-all duration-300 w-full overflow-x-hidden min-h-screen
-    md:mr-72
-  `;
-
   return (
     <div className="min-h-screen bg-dot-pattern flex transition-colors duration-300" dir={dir}>
       <Sidebar 
@@ -288,9 +217,12 @@ export default function App() {
         closeMobileMenu={() => setIsMobileMenuOpen(false)}
       />
       
-      <main className={mainClass}>
+      <main className={`
+        flex-1 p-4 md:p-8 transition-all duration-300 w-full overflow-x-hidden
+        ${dir === 'rtl' ? 'md:mr-72' : 'md:ml-72'}
+      `}>
         {/* HEADER */}
-        <header className="mb-8 relative z-20 shrink-0">
+        <header className="mb-8 relative z-20">
           <div className={headerFlexClass}>
               <div className="flex items-center gap-3">
                 <button 
@@ -336,10 +268,10 @@ export default function App() {
                           bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-[60] animate-scale-in origin-top-left
                       `}>
                           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950/50">
-                              <h3 className="font-bold text-slate-800 dark:text-white">{t('notifications')}</h3>
+                              <h3 className="font-bold text-slate-800 dark:text-white">الإشعارات</h3>
                               {notifications.length > 0 && (
                                   <button onClick={markAllNotificationsAsRead} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                                      <Check size={14} /> {t('markAllRead')}
+                                      <Check size={14} /> تحديد الكل كمقروء
                                   </button>
                               )}
                           </div>
@@ -347,7 +279,7 @@ export default function App() {
                               {notifications.length === 0 ? (
                                   <div className="py-12 text-center text-slate-400">
                                       <Bell size={40} className="mx-auto mb-2 opacity-20" />
-                                      <p className="text-sm">{t('noNotifications')}</p>
+                                      <p className="text-sm">لا توجد إشعارات جديدة</p>
                                   </div>
                               ) : (
                                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -382,7 +314,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="animate-fade-in flex-1">
+        <div className="animate-fade-in">
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'projects' && <Projects />}
           {activeTab === 'archive' && <Archive />} 
@@ -392,8 +324,6 @@ export default function App() {
           {activeTab === 'reports' && <Reports />}
           {activeTab === 'settings' && <Settings />}
         </div>
-
-        <Footer />
       </main>
     </div>
   );

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
-import { useLanguage } from '../contexts/LanguageProvider';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Briefcase, MapPin, Archive as ArchiveIcon, Download, FileSpreadsheet, X, Wallet, FileText, ArrowDown, ChevronRight, RefreshCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ExpenseStatus } from '../types';
@@ -17,7 +17,7 @@ export const Archive: React.FC = () => {
   // Filter Archived Projects Only - Status Based
   const archivedProjects = projects.filter(p => p.status === 'ARCHIVED');
 
-  // --- EXPORT FULL PROJECT REPORT ---
+  // --- EXPORT FULL REPORT FOR A PROJECT ---
   const exportFullProjectReport = (e: React.MouseEvent, projectId: string) => {
       e.stopPropagation();
       const project = projects.find(p => p.id === projectId);
@@ -61,20 +61,14 @@ export const Archive: React.FC = () => {
       summaryWS['!cols'] = [{wch: 30}, {wch: 20}, {wch: 15}, {wch: 10}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}];
       XLSX.utils.book_append_sheet(wb, summaryWS, "Summary");
 
-      // Sheet 2: Expenses Log
+      // Sheet 2: All Expenses Details
       const expensesData: any[][] = [
-          ["Advance", "Expense Description", "Date", "Amount", "Status", "Notes", "Type"]
-      ];
-
-      // Sheet 3: Itemized Breakdown
-      const itemizedData: any[][] = [
-          ["Advance", "Expense Desc", "Item Name", "Quantity", "Unit Price", "Line Total", "Status"]
+          ["Advance", "Expense Description", "Date", "Amount", "Status", "Notes", "Is Invoice?"]
       ];
 
       projectAdvances.forEach(adv => {
           const advExpenses = expenses.filter(e => e.advanceId === adv.id);
           advExpenses.forEach(exp => {
-              // Add to Sheet 2
               expensesData.push([
                   adv.description,
                   exp.description,
@@ -82,54 +76,21 @@ export const Archive: React.FC = () => {
                   exp.amount,
                   exp.status,
                   exp.notes || "",
-                  exp.isInvoice ? "Invoice" : "Fixed"
+                  exp.isInvoice ? "Yes" : "No"
               ]);
-
-              // Add to Sheet 3 (If Invoice)
-              if (exp.isInvoice && exp.invoiceItems) {
-                  exp.invoiceItems.forEach(item => {
-                      itemizedData.push([
-                          adv.description,
-                          exp.description,
-                          item.itemName,
-                          item.quantity,
-                          item.unitPrice,
-                          item.total,
-                          exp.status
-                      ]);
-                  });
-                  if (exp.additionalAmount && exp.additionalAmount > 0) {
-                      itemizedData.push([adv.description, exp.description, "Additional Charges", 1, exp.additionalAmount, exp.additionalAmount, exp.status]);
-                  }
-              } else {
-                  // Fixed expenses go to itemized as single line
-                  itemizedData.push([
-                      adv.description,
-                      exp.description,
-                      "Fixed Expense",
-                      1,
-                      exp.amount,
-                      exp.amount,
-                      exp.status
-                  ]);
-              }
           });
       });
 
       const expensesWS = XLSX.utils.aoa_to_sheet(expensesData);
       expensesWS['!cols'] = [{wch: 30}, {wch: 30}, {wch: 15}, {wch: 12}, {wch: 12}, {wch: 40}, {wch: 10}];
-      XLSX.utils.book_append_sheet(wb, expensesWS, "Expenses Log");
-
-      const itemizedWS = XLSX.utils.aoa_to_sheet(itemizedData);
-      itemizedWS['!cols'] = [{wch: 25}, {wch: 25}, {wch: 30}, {wch: 10}, {wch: 12}, {wch: 12}, {wch: 12}];
-      XLSX.utils.book_append_sheet(wb, itemizedWS, "Itemized Details");
+      XLSX.utils.book_append_sheet(wb, expensesWS, "Detailed Expenses");
 
       XLSX.writeFile(wb, `Archive_Report_${project.name}.xlsx`);
   };
 
   const handleRestore = async (e: React.MouseEvent, projectId: string) => {
       e.stopPropagation();
-      if(confirm(t('restoreConfirm'))) {
+      if(confirm('هل تريد استعادة هذا المشروع للقائمة النشطة؟')) {
           await restoreProject(projectId);
       }
   };
@@ -181,7 +142,7 @@ export const Archive: React.FC = () => {
                 onClick={() => setSelectedProjectForDetails(proj.id)}
                 className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col gap-4 group transition-all duration-300 hover:shadow-lg cursor-pointer relative overflow-hidden"
             >
-                <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 px-4 py-1 rounded-bl-xl text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('archivedLabel')}</div>
+                <div className="absolute top-0 right-0 bg-slate-200 dark:bg-slate-700 px-4 py-1 rounded-bl-xl text-[10px] font-bold text-slate-500 uppercase tracking-widest">Archived</div>
                 
                 <div className="flex items-start justify-between mt-2">
                     <div className="p-3 bg-slate-100 dark:bg-slate-900 text-slate-500 rounded-2xl">
@@ -216,15 +177,15 @@ export const Archive: React.FC = () => {
         {archivedProjects.length === 0 && (
             <div className="col-span-full py-24 text-center text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center justify-center">
                 <ArchiveIcon size={64} className="mb-4 opacity-20" />
-                <p className="font-bold">{t('noArchivedProjects')}</p>
+                <p className="font-bold">لا توجد مشاريع في الأرشيف</p>
             </div>
         )}
       </div>
 
       {/* --- ARCHIVE DETAILS MODAL (Same Layout as Projects) --- */}
       {selectedProjectForDetails && projectDetails && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in" onClick={() => setSelectedProjectForDetails(null)}>
-              <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden animate-scale-in flex flex-col max-h-[90vh] border border-white/10 modal-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in" onClick={() => setSelectedProjectForDetails(null)}>
+              <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden animate-scale-in flex flex-col max-h-[90vh] border border-white/10" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800 bg-amber-50 dark:bg-amber-900/20">
                       <div>
                           <h3 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3">
@@ -260,49 +221,50 @@ export const Archive: React.FC = () => {
                                               <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 px-2 py-0.5 rounded-full">{adv.status}</span>
                                           </h4>
                                           <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                                              <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 px-2 py-0.5 rounded">{t('originalAmount')}: {adv.amount.toLocaleString()}</span>
-                                              <span className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-0.5 rounded">{t('projectTotalSpent')}: {adv.totalSpent.toLocaleString()}</span>
+                                              <span>{users.find(u => u.id === adv.userId)?.name}</span>
+                                              <span>•</span>
+                                              <span>{adv.date}</span>
                                           </div>
                                       </div>
                                   </div>
-                                  <div className="flex items-center gap-4 mt-4 md:mt-0 w-full md:w-auto justify-end">
-                                       <div className="text-end">
-                                           <div className="text-xs text-slate-400 mb-1">{t('deficit')} / {t('returned')}</div>
-                                           <div className="font-mono font-bold text-slate-700 dark:text-white">
-                                               <span className="text-red-500">{adv.deficit.toLocaleString()}</span> / <span className="text-green-500">{adv.returned.toLocaleString()}</span>
-                                           </div>
-                                       </div>
-                                       {expandedAdvanceId === adv.id ? <ChevronRight size={20} className="rotate-90 text-slate-400 transition-transform" /> : <ChevronRight size={20} className="text-slate-400 transition-transform" />}
+
+                                  <div className="flex items-center gap-6 mt-4 md:mt-0 w-full md:w-auto justify-between md:justify-end">
+                                      <div className="text-end">
+                                          <p className="text-[10px] text-slate-400 uppercase font-bold">قيمة العهدة</p>
+                                          <p className="font-bold text-slate-800 dark:text-white">{adv.amount.toLocaleString()}</p>
+                                      </div>
+                                      {adv.deficit > 0 && (
+                                          <div className="text-end bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-lg">
+                                              <p className="text-[10px] text-red-500 uppercase font-bold">عجز</p>
+                                              <p className="font-black text-red-600 dark:text-red-400">{adv.deficit.toLocaleString()}</p>
+                                          </div>
+                                      )}
+                                      <div className="text-slate-300">
+                                          {expandedAdvanceId === adv.id ? <ArrowDown size={20}/> : <ChevronRight size={20} className="rtl:rotate-180"/>}
+                                      </div>
                                   </div>
                               </div>
 
-                              {/* Expanded Expenses */}
                               {expandedAdvanceId === adv.id && (
-                                  <div className="border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 p-4">
-                                      <table className="w-full text-xs text-start">
-                                          <thead>
-                                              <tr className="text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                                                  <th className="pb-2 text-start px-2">Date</th>
-                                                  <th className="pb-2 text-start">Description</th>
-                                                  <th className="pb-2 text-start">Amount</th>
-                                                  <th className="pb-2 text-start">Status</th>
-                                              </tr>
-                                          </thead>
-                                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                              {adv.expenses.length === 0 ? (
-                                                  <tr><td colSpan={4} className="p-4 text-center text-slate-400 italic">No expenses recorded</td></tr>
-                                              ) : (
-                                                  adv.expenses.map(exp => (
-                                                      <tr key={exp.id}>
-                                                          <td className="py-3 px-2 text-slate-500">{exp.date}</td>
-                                                          <td className="py-3 font-medium text-slate-700 dark:text-slate-300">{exp.description}</td>
-                                                          <td className="py-3 font-mono font-bold">{exp.amount.toLocaleString()}</td>
-                                                          <td className="py-3"><span className={`px-2 py-0.5 rounded text-[10px] ${exp.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{exp.status}</span></td>
-                                                      </tr>
-                                                  ))
-                                              )}
-                                          </tbody>
-                                      </table>
+                                  <div className="bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-700 p-4">
+                                      {adv.expenses.map(exp => (
+                                          <div key={exp.id} className="bg-white dark:bg-slate-800 p-3 mb-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex justify-between items-center text-sm shadow-sm">
+                                              <div className="flex items-center gap-3">
+                                                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><FileText size={14}/></div>
+                                                  <div>
+                                                      <p className="font-bold text-slate-700 dark:text-slate-200">{exp.description}</p>
+                                                      <p className="text-[10px] text-slate-400">{exp.date}</p>
+                                                  </div>
+                                              </div>
+                                              <span className="font-bold text-slate-800 dark:text-white">{exp.amount.toLocaleString()}</span>
+                                          </div>
+                                      ))}
+                                      
+                                      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-6 text-xs">
+                                          <div><span className="text-slate-400">Spent:</span> <span className="font-bold">{adv.totalSpent.toLocaleString()}</span></div>
+                                          <div><span className="text-slate-400">Returned:</span> <span className="font-bold text-green-600">{adv.returned.toLocaleString()}</span></div>
+                                          <div><span className="text-slate-400">Deficit:</span> <span className="font-bold text-red-600">{adv.deficit.toLocaleString()}</span></div>
+                                      </div>
                                   </div>
                               )}
                           </div>

@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   Cell, PieChart, Pie, Sector 
 } from 'recharts';
-import { useLanguage } from '../contexts/LanguageProvider';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { 
   Filter, FileSpreadsheet, ChevronRight, ChevronDown, 
@@ -336,9 +336,7 @@ export const Reports: React.FC = () => {
               </h3>
           </div>
           
-          {/* FIX: Removed 'p-4' from container and used inner wrapper to isolate sizing logic for Recharts */}
-          <div className="h-96 w-full relative bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="absolute inset-0 p-4">
+          <div className="h-96 w-full p-4 relative bg-slate-50/50 dark:bg-slate-900/50">
               {selectedChartAdvance ? (
                   // Detail View (Pie Chart for Advance Expenses)
                   expensesChartData.length > 0 ? (
@@ -356,7 +354,6 @@ export const Reports: React.FC = () => {
                                 dataKey="value"
                                 onMouseEnter={(_, index) => setActiveIndex(index)}
                                 paddingAngle={2}
-                                {...{ activeIndex: activeIndex } as any}
                             >
                                 {expensesChartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={2} stroke="#fff" />
@@ -396,7 +393,7 @@ export const Reports: React.FC = () => {
                                     return null;
                                 }}
                             />
-                            <Bar dataKey="amount" radius={[6, 6, 0, 0]} onClick={(data: any) => setSelectedChartAdvance(data.rawData)}>
+                            <Bar dataKey="amount" radius={[6, 6, 0, 0]} onClick={(data) => setSelectedChartAdvance(data.rawData)}>
                                 {advancesChartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} cursor="pointer" />
                                 ))}
@@ -410,7 +407,6 @@ export const Reports: React.FC = () => {
                     </div>
                   )
               )}
-              </div>
           </div>
       </div>
 

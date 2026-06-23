@@ -2,8 +2,8 @@
 // أنواع المستخدمين
 export enum UserRole {
   ADMIN = 'ADMIN', // محاسب
-  MAIN_CUSTODY = 'MAIN_CUSTODY', // عهدة رئيسية
-  SUB_CUSTODY = 'SUB_CUSTODY' // عهدة فرعية
+  ENGINEER = 'ENGINEER', // مهندس
+  TECHNICIAN = 'TECHNICIAN' // فني / مساعد
 }
 
 // حالة العهدة

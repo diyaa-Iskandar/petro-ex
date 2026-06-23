@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Advance, Expense, Project, User, ExpenseStatus, AdvanceStatus, UserRole, AppNotification, Client, Task } from '../types';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
@@ -15,45 +15,41 @@ interface DataContextType {
   notifications: AppNotification[];
   unreadNotificationsCount: number;
   
-  redirectTarget: { page: string; itemId?: string; itemType?: 'ADVANCE' | 'EXPENSE'; timestamp: number } | null;
+  redirectTarget: { page: string; itemId?: string; itemType?: 'ADVANCE' | 'EXPENSE' } | null;
   clearRedirectTarget: () => void;
   setRedirect: (page: string, itemId: string, itemType: 'ADVANCE' | 'EXPENSE') => void;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => Promise<void>;
   editClient: (id: string, updates: Partial<Client>) => Promise<void>;
-  deleteClient: (id: string) => Promise<void>;
 
   addProject: (project: Omit<Project, 'id' | 'status'>) => Promise<void>;
   editProject: (id: string, updates: Partial<Project>) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
   archiveProject: (projectId: string) => Promise<{ success: boolean; blockedBy?: any[] }>;
   restoreProject: (projectId: string) => Promise<boolean>;
   
   addTask: (task: Omit<Task, 'id' | 'status'>) => Promise<void>;
   editTask: (id: string, updates: Partial<Task>) => Promise<void>;
-  deleteTask: (id: string) => Promise<void>;
   
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   
   addAdvance: (advance: Omit<Advance, 'id' | 'status' | 'remainingAmount' | 'date'>) => Promise<void>;
-  createSubAdvance: (parentAdvanceId: string, technicianId: string, amount: number, description: string) => Promise<void>;
   editAdvance: (id: string, updates: Partial<Advance>) => Promise<void>;
-  deleteAdvance: (id: string) => Promise<void>;
   
-  addExpense: (expense: Omit<Expense, 'id' | 'status' | 'rejectionReason' | 'date'>) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'status' | 'rejectionReason'>) => Promise<void>;
   editExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
   
   updateExpenseStatus: (expenseId: string, status: ExpenseStatus, reason?: string) => Promise<void>;
   toggleExpenseEditability: (expenseId: string, isEditable: boolean) => Promise<void>;
   
-  updateAdvanceStatus: (advanceId: string, status: AdvanceStatus, rejectionReason?: string, receiptUrl?: string) => Promise<void>;
+  updateAdvanceStatus: (advanceId: string, status: AdvanceStatus, reason?: string) => Promise<void>;
   closeAdvance: (advanceId: string, settlementData: any) => Promise<void>;
   
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
 
   getMyTeam: () => User[];
+  getMyProjects: () => Project[];
   getStableAvatar: (name: string) => string; 
   isOffline: boolean;
   isLoading: boolean;
@@ -72,18 +68,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [allAdvances, setAllAdvances] = useState<Advance[]>([]);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  
-  const [redirectTarget, setRedirectTarget] = useState<{ page: string; itemId?: string; itemType?: 'ADVANCE' | 'EXPENSE'; timestamp: number } | null>(null);
-  
+  const [redirectTarget, setRedirectTarget] = useState<{ page: string; itemId?: string; itemType?: 'ADVANCE' | 'EXPENSE' } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isLoading, setIsLoading] = useState(true);
   
   const hasPlayedInitialSound = useRef(false);
-
-  // Reset sound flag on user change
-  useEffect(() => {
-      hasPlayedInitialSound.current = false;
-  }, [currentUser?.id]);
 
   // --- Offline Handler ---
   useEffect(() => {
@@ -100,6 +89,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, []);
 
+  // Simple Offline Queue Processing
   const processOfflineQueue = async () => {
       const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
       if (queue.length === 0) return;
@@ -112,7 +102,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const { table, data, type } = req;
               if (type === 'INSERT') await supabase.from(table).insert([data]);
               else if (type === 'UPDATE') await supabase.from(table).update(data).eq('id', data.id);
-              else if (type === 'DELETE') await supabase.from(table).delete().eq('id', data.id);
           } catch (e) {
               console.error('Failed to process queued item', e);
               newQueue.push(req); // Keep failed items
@@ -126,7 +115,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
-  const addToQueue = (table: string, data: any, type: 'INSERT' | 'UPDATE' | 'DELETE') => {
+  const addToQueue = (table: string, data: any, type: 'INSERT' | 'UPDATE') => {
       const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
       queue.push({ table, data, type, timestamp: Date.now() });
       localStorage.setItem('offlineQueue', JSON.stringify(queue));
@@ -135,15 +124,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const playNotificationSound = () => {
     if (currentUser?.preferences?.soundEnabled !== false) {
+      // Create a new Audio instance each time to ensure it plays
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('Audio play blocked:', e));
+      audio.play().catch(e => console.log('Audio play blocked by browser policy:', e));
     }
   };
 
   const fetchData = useCallback(async (isReconnect = false) => {
     setIsLoading(true);
     try {
+        // Parallel fetching for performance
         const [
             { data: usersData },
             { data: clientsData },
@@ -160,12 +150,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             supabase.from('expenses').select('*')
         ]);
 
-        if (usersData) setAllUsers(usersData);
-        if (clientsData) setAllClients(clientsData);
-        if (projectsData) setAllProjects(projectsData);
-        if (tasksData) setAllTasks(tasksData);
-        if (advancesData) setAllAdvances(advancesData);
-        if (expensesData) setAllExpenses(expensesData);
+        // STRICTLY USE DB DATA
+        if (usersData) setAllUsers(usersData); else setAllUsers([]);
+        if (clientsData) setAllClients(clientsData); else setAllClients([]);
+        if (projectsData) setAllProjects(projectsData); else setAllProjects([]);
+        if (tasksData) setAllTasks(tasksData); else setAllTasks([]);
+        if (advancesData) setAllAdvances(advancesData); else setAllAdvances([]);
+        if (expensesData) setAllExpenses(expensesData); else setAllExpenses([]);
 
         if (currentUser) {
             const { data: notifData } = await supabase
@@ -176,17 +167,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (notifData) {
                 setNotifications(notifData);
+                
+                // Play sound logic
                 const unreadCount = notifData.filter(n => !n.isRead).length;
-                if (unreadCount > 0 && !hasPlayedInitialSound.current) {
-                    playNotificationSound();
-                    hasPlayedInitialSound.current = true;
-                    if(isReconnect) showNotification(`لديك ${unreadCount} إشعارات جديدة`, 'info');
+                if (unreadCount > 0) {
+                    if (!hasPlayedInitialSound.current || isReconnect) {
+                        playNotificationSound();
+                        hasPlayedInitialSound.current = true;
+                        if (isReconnect) showNotification(`لديك ${unreadCount} إشعارات جديدة`, 'info');
+                    }
                 }
             }
         }
 
     } catch (error) {
         console.error('Error fetching data:', error);
+        showNotification('خطأ في الاتصال بقاعدة البيانات', 'error');
     } finally {
         setIsLoading(false);
     }
@@ -198,6 +194,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const channel = supabase.channel('global-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+          // Refresh on any change
           if (['advances', 'expenses', 'projects', 'clients', 'tasks', 'users'].includes(payload.table)) {
              await fetchData();
           }
@@ -216,32 +213,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id, fetchData]); 
 
-  // --- MEMOIZED FILTERS (Prevents Infinite Re-renders) ---
-  const activeUserList = useMemo(() => allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []), [allUsers, currentUser]);
+  // --- Strict ISOLATION & Visibility Logic ---
+  const activeUserList = allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []);
 
-  const filteredProjects = useMemo(() => allProjects.filter(p => {
+  const filteredProjects = allProjects.filter(p => {
     if (!currentUser) return false;
     if (currentUser.role === UserRole.ADMIN) { return true; }
-    if (currentUser.role === UserRole.MAIN_CUSTODY) { return (p.assignedEngineers && p.assignedEngineers.includes(currentUser.id)); }
-    if (currentUser.role === UserRole.SUB_CUSTODY) { 
-        return p.assignedEngineers && p.assignedEngineers.includes(currentUser.managerId || '');
-    }
+    if (currentUser.role === UserRole.ENGINEER) { return (p.assignedEngineers && p.assignedEngineers.includes(currentUser.id)); }
+    if (currentUser.role === UserRole.TECHNICIAN) { return allAdvances.some(a => a.userId === currentUser.id && a.projectId === p.id); }
     return false;
-  }), [allProjects, currentUser]);
+  });
 
-  const filteredUsers = useMemo(() => activeUserList.filter(u => {
+  const filteredUsers = activeUserList.filter(u => {
       if (!currentUser) return false;
       if (u.isDeleted) return false; 
       if (u.id === currentUser.id) return true; 
       if (currentUser.role === UserRole.ADMIN) return true; 
-      if (currentUser.role === UserRole.MAIN_CUSTODY) return u.managerId === currentUser.id || u.role === UserRole.SUB_CUSTODY; 
+      if (currentUser.role === UserRole.ENGINEER) return u.managerId === currentUser.id && u.role === UserRole.TECHNICIAN;
       return false; 
-  }), [activeUserList, currentUser]);
+  });
 
-  const filteredAdvances = useMemo(() => allAdvances.filter(a => {
+  const filteredAdvances = allAdvances.filter(a => {
       if (!currentUser) return false;
       if (currentUser.role === UserRole.ADMIN) return true;
-      if (currentUser.role === UserRole.MAIN_CUSTODY) {
+      
+      if (currentUser.role === UserRole.ENGINEER) {
           if (a.userId === currentUser.id) return true; 
           if (a.parentAdvanceId) {
               const parentAdv = allAdvances.find(p => p.id === a.parentAdvanceId);
@@ -249,24 +245,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return false;
       }
-      if (currentUser.role === UserRole.SUB_CUSTODY) return a.userId === currentUser.id;
+      if (currentUser.role === UserRole.TECHNICIAN) return a.userId === currentUser.id;
       return false;
-  }), [allAdvances, currentUser]);
+  });
   
-  const filteredExpenses = useMemo(() => allExpenses.filter(e => {
-      if (currentUser?.role === UserRole.SUB_CUSTODY) {
-          return e.userId === currentUser.id;
-      }
-      if (currentUser?.role === UserRole.MAIN_CUSTODY) {
-          if (e.userId === currentUser.id) return true;
-          const advance = allAdvances.find(a => a.id === e.advanceId);
-          if (advance && advance.parentAdvanceId) {
-              const parentAdv = allAdvances.find(p => p.id === advance.parentAdvanceId);
-              if (parentAdv && parentAdv.userId === currentUser.id) return true;
-          }
-      }
+  const filteredExpenses = allExpenses.filter(e => {
       return filteredAdvances.some(a => a.id === e.advanceId);
-  }), [allExpenses, allAdvances, filteredAdvances, currentUser]);
+  });
 
   const getStableAvatar = (name: string) => {
     if (!name) return `https://ui-avatars.com/api/?name=NA&background=000&color=fff`;
@@ -278,6 +263,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // --- CRUD Operations ---
+
   const addClient = async (data: Omit<Client, 'id' | 'createdAt'>) => {
       if (isOffline) { addToQueue('clients', data, 'INSERT'); return; }
       const { data: newClient, error } = await supabase.from('clients').insert([data]).select().single();
@@ -290,18 +276,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.from('clients').update(updates).eq('id', id);
       if (error) showNotification('فشل تعديل العميل', 'error');
       else { setAllClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c)); showNotification('تم تعديل بيانات العميل', 'success'); }
-  };
-
-  const deleteClient = async (id: string) => {
-      const { error } = await supabase.from('clients').delete().eq('id', id);
-      if (error) { 
-        console.error(error);
-        showNotification('فشل حذف العميل', 'error'); 
-      }
-      else { 
-        setAllClients(prev => prev.filter(c => c.id !== id)); 
-        showNotification('تم حذف العميل بنجاح', 'success'); 
-      }
   };
 
   const addProject = async (data: Omit<Project, 'id' | 'status'>) => {
@@ -320,44 +294,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       else { setAllProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)); showNotification('تم تحديث بيانات المشروع', 'success'); }
   };
 
-  const deleteProject = async (id: string) => {
-      const { error } = await supabase.from('projects').delete().eq('id', id);
-      if (error) { 
-        console.error(error);
-        showNotification('فشل حذف المشروع', 'error'); 
-      }
-      else { 
-        setAllProjects(prev => prev.filter(p => p.id !== id)); 
-        showNotification('تم حذف المشروع بنجاح', 'success'); 
-      }
-  };
-
   const archiveProject = async (projectId: string): Promise<{ success: boolean; blockedBy?: any[] }> => {
-      // 1. Check for OPEN Advances linked to this project
-      const blockingAdvances = allAdvances.filter(a => a.projectId === projectId && a.status === AdvanceStatus.OPEN);
-      
-      // 2. Check for PENDING Expenses linked to tasks within this project
+      const blockingAdvances = allAdvances.filter(a => 
+          a.projectId === projectId && 
+          a.status !== AdvanceStatus.CLOSED && 
+          a.status !== AdvanceStatus.REJECTED
+      );
+
       const projectTasks = allTasks.filter(t => t.projectId === projectId).map(t => t.id);
+      
       const blockingExpenses = allExpenses.filter(exp => {
-          if (exp.taskId && projectTasks.includes(exp.taskId)) { 
-              return exp.status === ExpenseStatus.PENDING; 
-          }
-          // Also check expenses directly on advances of this project if any (edge case)
-          const parentAdv = allAdvances.find(a => a.id === exp.advanceId);
-          if (parentAdv && parentAdv.projectId === projectId) {
-              return exp.status === ExpenseStatus.PENDING;
+          if (exp.taskId && projectTasks.includes(exp.taskId)) {
+              if (exp.status === ExpenseStatus.PENDING) return true;
           }
           return false;
       });
 
       const blockingItems = [...blockingAdvances, ...blockingExpenses];
-      
+
       if (blockingItems.length > 0) {
-          // Return the blocking items so the UI can display them
           return { success: false, blockedBy: blockingItems };
       }
-      
-      // Proceed to Archive
+
       const { error } = await supabase.from('projects').update({ status: 'ARCHIVED' }).eq('id', projectId); 
       if (error) { 
           showNotification('فشل أرشفة المشروع', 'error'); 
@@ -390,23 +348,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       else { setAllTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)); showNotification('تم تعديل المهمة بنجاح', 'success'); }
   };
 
-  const deleteTask = async (id: string) => {
-      const { error } = await supabase.from('tasks').delete().eq('id', id);
-      if (error) {
-        console.error(error);
-        showNotification('فشل حذف المهمة', 'error');
-      }
-      else {
-        setAllTasks(prev => prev.filter(t => t.id !== id));
-        showNotification('تم حذف المهمة بنجاح', 'success');
-      }
-  };
-
   const addUser = async (data: Omit<User, 'id'>) => { 
       const avatarUrl = getStableAvatar(data.name); 
       let managerId = data.managerId; 
       let rootAdminId = currentUser?.rootAdminId || currentUser?.id; 
-      if (currentUser?.role === UserRole.MAIN_CUSTODY) { managerId = currentUser.id; } 
+      if (currentUser?.role === UserRole.ENGINEER) { managerId = currentUser.id; } 
       else if (currentUser?.role === UserRole.ADMIN) { if (!managerId) managerId = currentUser.id; rootAdminId = currentUser.id; } 
       const payload = { ...data, avatarUrl, managerId, rootAdminId };
       if (isOffline) { addToQueue('users', payload, 'INSERT'); return; }
@@ -422,18 +368,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addAdvance = async (data: Omit<Advance, 'id' | 'status' | 'remainingAmount' | 'date'>) => {
+    let currentParentRemaining = 0;
+    if (data.parentAdvanceId) {
+        const parentAdv = allAdvances.find(a => a.id === data.parentAdvanceId);
+        if (!parentAdv) { showNotification('خطأ: العهدة الأم غير موجودة', 'error'); return; }
+        if (parentAdv.remainingAmount < data.amount) { showNotification('خطأ: رصيد العهدة الأم غير كافٍ', 'error'); return; }
+        currentParentRemaining = Number(parentAdv.remainingAmount) - Number(data.amount);
+        setAllAdvances(prev => prev.map(a => a.id === parentAdv.id ? { ...a, remainingAmount: currentParentRemaining } : a));
+        if(!isOffline) { await supabase.from('advances').update({ remainingAmount: currentParentRemaining }).eq('id', parentAdv.id); }
+    }
     let initialStatus = AdvanceStatus.PENDING;
     if (currentUser?.role === UserRole.ADMIN) { initialStatus = AdvanceStatus.OPEN; } 
-    else if (currentUser?.role === UserRole.MAIN_CUSTODY) { initialStatus = AdvanceStatus.PENDING; }
+    else if (currentUser?.role === UserRole.ENGINEER) { if (data.parentAdvanceId) { initialStatus = AdvanceStatus.OPEN; } else { initialStatus = AdvanceStatus.PENDING; } }
     const payload = { ...data, status: initialStatus, remainingAmount: Number(data.amount), date: new Date().toISOString().split('T')[0] };
     if (isOffline) { addToQueue('advances', payload, 'INSERT'); return; }
+    
     const { data: newAdvData, error } = await supabase.from('advances').insert([payload]).select().single();
     if (error) { showNotification('فشل العملية', 'error'); fetchData(); } 
     else { 
         setAllAdvances(prev => [...prev, newAdvData]); 
         showNotification('تمت العملية بنجاح', 'success'); 
+        
         let notifyTargetId = currentUser?.rootAdminId;
-        if (currentUser?.role === UserRole.SUB_CUSTODY) notifyTargetId = currentUser.managerId; 
+        if (currentUser?.role === UserRole.TECHNICIAN) {
+            notifyTargetId = currentUser.managerId; 
+        }
+        
         if (notifyTargetId && notifyTargetId !== currentUser?.id) {
             await supabase.from('notifications').insert([{
                 userId: notifyTargetId,
@@ -447,24 +407,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createSubAdvance = async (parentAdvanceId: string, technicianId: string, amount: number, description: string) => {
-      const parentAdv = allAdvances.find(a => a.id === parentAdvanceId);
-      if (!parentAdv) { showNotification('العهدة الأم غير موجودة', 'error'); return; }
-      if (parentAdv.remainingAmount < amount) { showNotification('رصيد العهدة غير كافٍ لتخصيص هذا المبلغ', 'error'); return; }
-      const newParentRemaining = Number(parentAdv.remainingAmount) - Number(amount);
-      const { error: parentError } = await supabase.from('advances').update({ remainingAmount: newParentRemaining }).eq('id', parentAdvanceId);
-      if (parentError) { showNotification('فشل تحديث العهدة الأم', 'error'); return; }
-      setAllAdvances(prev => prev.map(a => a.id === parentAdvanceId ? { ...a, remainingAmount: newParentRemaining } : a));
-      const subAdvancePayload = { projectId: parentAdv.projectId, userId: technicianId, amount: amount, remainingAmount: amount, description: description, status: AdvanceStatus.OPEN, date: new Date().toISOString().split('T')[0], parentAdvanceId: parentAdvanceId };
-      const { data: newSubAdv, error: subError } = await supabase.from('advances').insert([subAdvancePayload]).select().single();
-      if (subError) { showNotification('فشل إنشاء العهدة الفرعية', 'error'); fetchData(); } 
-      else {
-          setAllAdvances(prev => [...prev, newSubAdv]);
-          showNotification('تم تخصيص العهدة للمساعد بنجاح', 'success');
-          await supabase.from('notifications').insert([{ userId: technicianId, title: 'تم استلام عهدة فرعية', message: `قام المهندس ${currentUser?.name} بتخصيص عهدة لك: ${description}`, type: 'success', targetPage: 'advances', targetId: newSubAdv.id }]);
-      }
-  };
-
   const editAdvance = async (id: string, updates: Partial<Advance>) => { 
       if (isOffline) { addToQueue('advances', { ...updates, id }, 'UPDATE'); return; }
       const { error } = await supabase.from('advances').update(updates).eq('id', id); 
@@ -472,73 +414,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       else { setAllAdvances(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a)); showNotification('تم التعديل بنجاح', 'success'); } 
   };
 
-  const deleteAdvance = async (id: string) => {
-      if (isOffline) { addToQueue('advances', { id }, 'DELETE'); return; }
-      const { error } = await supabase.from('advances').delete().eq('id', id);
-      if (error) showNotification('فشل الحذف', 'error');
-      else { setAllAdvances(prev => prev.filter(a => a.id !== id)); }
-  };
-
-  const addExpense = async (data: Omit<Expense, 'id' | 'status' | 'rejectionReason' | 'date'>) => { 
-      const payload = { ...data, userId: currentUser?.id, date: new Date().toISOString().split('T')[0], status: ExpenseStatus.PENDING };
+  const addExpense = async (data: Omit<Expense, 'id' | 'status' | 'rejectionReason'>) => { 
+      const payload = { ...data, date: new Date().toISOString().split('T')[0], status: ExpenseStatus.PENDING };
       if (isOffline) { addToQueue('expenses', payload, 'INSERT'); return; }
       const { data: newExp, error } = await supabase.from('expenses').insert([payload]).select().single(); 
       if (error) showNotification('فشل التسجيل', 'error'); 
       else { 
           setAllExpenses(prev => [...prev, newExp]); 
           showNotification('تم التسجيل بنجاح', 'success'); 
+          
           let notifyTargetId = currentUser?.rootAdminId;
-          const advance = allAdvances.find(a => a.id === data.advanceId);
-          if (advance && advance.parentAdvanceId) {
-              const parentAdv = allAdvances.find(p => p.id === advance.parentAdvanceId);
-              if (parentAdv) notifyTargetId = parentAdv.userId; 
-          } else if (currentUser?.role === UserRole.SUB_CUSTODY) {
+          if (currentUser?.role === UserRole.TECHNICIAN) {
               notifyTargetId = currentUser.managerId; 
           }
+          
           if (notifyTargetId && notifyTargetId !== currentUser?.id) {
-              await supabase.from('notifications').insert([{ userId: notifyTargetId, title: 'مصروف جديد معلق', message: `قام ${currentUser?.name} بإضافة مصروف جديد: ${data.description}`, type: 'warning', targetPage: 'dashboard', targetId: newExp.id }]);
+              await supabase.from('notifications').insert([{
+                  userId: notifyTargetId,
+                  title: 'مصروف جديد معلق',
+                  message: `قام ${currentUser?.name} بإضافة مصروف جديد: ${data.description}`,
+                  type: 'warning',
+                  targetPage: 'dashboard',
+                  targetId: newExp.id
+              }]);
           }
       } 
   };
 
   const editExpense = async (id: string, updates: Partial<Expense>) => { 
       const payload = { ...updates, id };
-      // Reset status to PENDING on edit if it was REJECTED, so it goes back for approval
-      if (updates.status === undefined) {
-          payload.status = ExpenseStatus.PENDING;
-      }
-      
       if (isOffline) { addToQueue('expenses', payload, 'UPDATE'); return; }
-      const { error } = await supabase.from('expenses').update(payload).eq('id', id); 
+      const { error } = await supabase.from('expenses').update(updates).eq('id', id); 
       if (error) showNotification('فشل التعديل', 'error'); 
-      else { 
-          setAllExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updates, status: ExpenseStatus.PENDING } : e)); 
-          showNotification('تم التعديل وإعادة الإرسال', 'success'); 
-          
-          // Notify Manager/Admin again
-          const expense = allExpenses.find(e => e.id === id);
-          if (expense) {
-              let notifyTargetId = currentUser?.rootAdminId;
-              const advance = allAdvances.find(a => a.id === expense.advanceId);
-              if (advance && advance.parentAdvanceId) {
-                  const parentAdv = allAdvances.find(p => p.id === advance.parentAdvanceId);
-                  if (parentAdv) notifyTargetId = parentAdv.userId; 
-              } else if (currentUser?.role === UserRole.SUB_CUSTODY) {
-                  notifyTargetId = currentUser.managerId; 
-              }
-              if (notifyTargetId && notifyTargetId !== currentUser?.id) {
-                  await supabase.from('notifications').insert([{ userId: notifyTargetId, title: 'مصروف معدل', message: `قام ${currentUser?.name} بتعديل مصروف: ${expense.description}`, type: 'warning', targetPage: 'dashboard', targetId: id }]);
-              }
-          }
-      } 
+      else { setAllExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e)); showNotification('تم التعديل بنجاح', 'success'); } 
   };
 
   const updateExpenseStatus = async (expenseId: string, status: ExpenseStatus, reason?: string) => { 
       const expense = allExpenses.find(e => e.id === expenseId);
       if (!expense) return;
+
       const { error } = await supabase.from('expenses').update({ status, rejectionReason: reason, isEditable: false }).eq('id', expenseId); 
       if (!error) {
           setAllExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status, rejectionReason: reason } : e));
+          
           if (status === ExpenseStatus.APPROVED) { 
               const advance = allAdvances.find(a => a.id === expense.advanceId); 
               if (advance) { 
@@ -547,11 +465,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   await supabase.from('advances').update({ remainingAmount: newRemaining }).eq('id', advance.id); 
               }
               if (expense.userId !== currentUser?.id) {
-                  await supabase.from('notifications').insert([{ userId: expense.userId, title: 'تم قبول المصروف', message: `تمت الموافقة على المصروف: ${expense.description}`, type: 'success', targetPage: 'dashboard', targetId: expense.id }]);
+                  await supabase.from('notifications').insert([{
+                      userId: expense.userId,
+                      title: 'تم قبول المصروف',
+                      message: `تمت الموافقة على المصروف: ${expense.description}`,
+                      type: 'success',
+                      targetPage: 'dashboard',
+                      targetId: expense.id
+                  }]);
               }
           } else if (status === ExpenseStatus.REJECTED) {
               if (expense.userId !== currentUser?.id) {
-                  await supabase.from('notifications').insert([{ userId: expense.userId, title: 'تم رفض المصروف', message: `تم رفض المصروف: ${expense.description}. السبب: ${reason}`, type: 'error', targetPage: 'dashboard', targetId: expense.id }]);
+                  await supabase.from('notifications').insert([{
+                      userId: expense.userId,
+                      title: 'تم رفض المصروف',
+                      message: `تم رفض المصروف: ${expense.description}. السبب: ${reason}`,
+                      type: 'error',
+                      targetPage: 'dashboard',
+                      targetId: expense.id
+                  }]);
               }
           }
       }
@@ -563,27 +495,55 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showNotification(isEditable ? 'تم فتح التعديل' : 'تم قفل التعديل', 'info'); 
   };
 
-  const updateAdvanceStatus = async (advanceId: string, status: AdvanceStatus, reason?: string, receiptUrl?: string) => { 
+  const updateAdvanceStatus = async (advanceId: string, status: AdvanceStatus, reason?: string) => { 
       const advance = allAdvances.find(a => a.id === advanceId);
       if(!advance) return;
-      const updatePayload: any = { status, rejectionReason: reason };
-      if (receiptUrl) updatePayload.transferReceiptUrl = receiptUrl;
-      await supabase.from('advances').update(updatePayload).eq('id', advanceId); 
-      setAllAdvances(prev => prev.map(a => a.id === advanceId ? { ...a, ...updatePayload } : a));
+
+      await supabase.from('advances').update({ status, rejectionReason: reason }).eq('id', advanceId); 
+      setAllAdvances(prev => prev.map(a => a.id === advanceId ? { ...a, status, rejectionReason: reason } : a));
+
       if (status === AdvanceStatus.OPEN) {
           if (advance.userId !== currentUser?.id) {
-              await supabase.from('notifications').insert([{ userId: advance.userId, title: 'تم صرف العهدة', message: `تمت الموافقة على العهدة: ${advance.description}`, type: 'success', targetPage: 'advances', targetId: advance.id }]);
+              await supabase.from('notifications').insert([{
+                  userId: advance.userId,
+                  title: 'تم صرف العهدة',
+                  message: `تمت الموافقة على العهدة: ${advance.description}`,
+                  type: 'success',
+                  targetPage: 'advances',
+                  targetId: advance.id
+              }]);
           }
-      } 
+      } else if (status === AdvanceStatus.REJECTED) {
+          if (advance.userId !== currentUser?.id) {
+              await supabase.from('notifications').insert([{
+                  userId: advance.userId,
+                  title: 'تم رفض العهدة',
+                  message: `تم رفض طلب العهدة: ${advance.description}. السبب: ${reason}`,
+                  type: 'error',
+                  targetPage: 'advances',
+                  targetId: advance.id
+              }]);
+          }
+      }
   };
 
   const closeAdvance = async (advanceId: string, settlementData: any) => { 
       const { error } = await supabase.from('advances').update({ status: AdvanceStatus.CLOSED, settlementData }).eq('id', advanceId); 
       if (!error) { 
           setAllAdvances(prev => prev.map(a => a.id === advanceId ? { ...a, status: AdvanceStatus.CLOSED, settlementData } : a));
+          
           const oldAdvance = allAdvances.find(a => a.id === advanceId); 
           if (oldAdvance && settlementData.deficitAmount > 0) { 
-              const newDeficitAdvance = { projectId: oldAdvance.projectId, userId: oldAdvance.userId, amount: Number(settlementData.deficitAmount), remainingAmount: Number(settlementData.deficitAmount), description: `تسوية عجز: ${oldAdvance.description}`, status: AdvanceStatus.OPEN, date: new Date().toISOString().split('T')[0], parentAdvanceId: oldAdvance.parentAdvanceId }; 
+              const newDeficitAdvance = { 
+                  projectId: oldAdvance.projectId, 
+                  userId: oldAdvance.userId, 
+                  amount: Number(settlementData.deficitAmount), 
+                  remainingAmount: Number(settlementData.deficitAmount), 
+                  description: `تسوية عجز: ${oldAdvance.description}`, 
+                  status: AdvanceStatus.OPEN, 
+                  date: new Date().toISOString().split('T')[0], 
+                  parentAdvanceId: oldAdvance.parentAdvanceId 
+              }; 
               const { data: newAdv } = await supabase.from('advances').insert([newDeficitAdvance]).select().single(); 
               if(newAdv) setAllAdvances(prev => [...prev, newAdv]);
               showNotification('تم ترحيل العجز لعهدة جديدة', 'warning'); 
@@ -598,7 +558,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearRedirectTarget = () => setRedirectTarget(null);
   const setRedirect = (page: string, itemId: string, itemType: 'ADVANCE' | 'EXPENSE') => {
-      setRedirectTarget({ page, itemId, itemType, timestamp: Date.now() });
+      setRedirectTarget({ page, itemId, itemType });
   };
 
   return (
@@ -616,21 +576,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setRedirect, 
         addClient,
         editClient,
-        deleteClient,
         addProject, 
         editProject, 
-        deleteProject,
         archiveProject, 
         restoreProject,
         addTask,
         editTask,
-        deleteTask,
         addUser, 
         deleteUser, 
-        addAdvance,
-        createSubAdvance,
+        addAdvance, 
         editAdvance, 
-        deleteAdvance,
         addExpense, 
         editExpense, 
         updateExpenseStatus, 
@@ -640,6 +595,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         markNotificationAsRead, 
         markAllNotificationsAsRead, 
         getMyTeam: () => filteredUsers.filter(u => u.id !== currentUser?.id), 
+        getMyProjects: () => filteredProjects, 
         getStableAvatar,
         isOffline,
         isLoading

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageProvider';
+import { useLanguage } from '../contexts/LanguageContext';
 import { UserRole } from '../types';
 import { Globe, User, Shield, Mail, Lock, Camera, Phone, Briefcase, LogOut, BellRing, Volume2 } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -98,7 +98,7 @@ export const Settings: React.FC = () => {
         </div>
         <div className="pt-14 pb-8 px-8">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{user.name}</h2>
-          <p className="text-slate-500 dark:text-slate-400">{user.jobTitle || (user.role === UserRole.ADMIN ? t('roleAdmin') : (user.role === UserRole.MAIN_CUSTODY ? t('roleMainCustody') : t('roleSubCustody')))}</p>
+          <p className="text-slate-500 dark:text-slate-400">{user.jobTitle || user.role}</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
@@ -107,7 +107,7 @@ export const Settings: React.FC = () => {
             </div>
             <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                 <Shield className="text-purple-600 dark:text-purple-400" size={20} />
-                <p className="font-medium text-slate-700 dark:text-slate-200">{user.role === UserRole.ADMIN ? t('roleAdmin') : (user.role === UserRole.MAIN_CUSTODY ? t('roleMainCustody') : t('roleSubCustody'))}</p>
+                <p className="font-medium text-slate-700 dark:text-slate-200">{user.role}</p>
             </div>
              <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                 <Phone className="text-green-600 dark:text-green-400" size={20} />
